@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>City Bus Manager</title>
+  <style>
+    body {
+   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+   background-color: #f5f5f5; /* Jasny szary */
+   color: #333; /* Ciemnoszary */
+   margin: 0;
+   padding: 0;
+ }
+
+.container {
+  max-width: 1200px;
+  margin: 20px auto;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+  color: #007bff; /* Niebieski */
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #0056b3; /* Ciemniejszy niebieski */
+}
+
+input[type="text"] {
+  padding: 8px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+li {
+  margin-bottom: 10px;
+}
+
+#game-time {
+  font-size: 24px;
+  margin-top: 20px;
+}
+
+#game {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px; /* Odstęp między elementami */
+}
+
+#bus-fleet, #bus-shop, #line-list {
+  width: calc(33.33% - 20px); /* Trzecia część szerokości z odstępem między */
+}
+
+#bus-shop, #line-list {
+  padding: 20px;
+  background-color: #f9f9f9; /* Bardziej jasny szary */
+  border-radius: 8px;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="game">
+      <div id="bus-fleet">
+        <h2>Bus Fleet</h2>
+        <ul id="buses"></ul>
+      </div>
+      <div id="bus-shop">
+        <h2>Bus Shop</h2>
+        <p>Your Money: $<span id="player-money">150000</span></p>
+        <button onclick="buyBus('Short', 10000)">Buy Short Bus ($10,000)</button>
+        <button onclick="buyBus('Standard', 70000)">Buy Standard Bus ($70,000)</button>
+        <button onclick="buyBus('Articulated', 125000)">Buy Articulated Bus ($125,000)</button>
+        <h3>Loans</h3>
+        <button onclick="takeLoan(100000)">Take $100,000 Loan</button>
+        <button onclick="takeLoan(300000)">Take $300,000 Loan</button>
+        <h3>Repay Loan</h3>
+        <button onclick="repayLoan(100000)">Repay $100,000 Loan</button>
+        <button onclick="repayLoan(300000)">Repay $300,000 Loan</button>
+      </div>
+      <div id="line-list">
+        <h2>Line List</h2>
+        <form id="line-form">
+          <input type="text" id="line-name" placeholder="Enter Line Name">
+          <button type="submit">Create Line</button>
+        </form>
+        <ul id="lines"></ul>
+      </div>
+    </div>
+    <div id="game-time">Time: <span id="current-time">11:00</span></div>
+    <div>
+      <button onclick="speedUpTime(2)">Speed x2</button>
+      <button onclick="speedUpTime(3)">Speed x3</button>
+      <button onclick="speedUpTime(5)">Speed x5</button>
+      <button onclick="resetSpeed()">Reset Speed</button>
+    </div>
+  </div>
+
+  <script>
+    let busFleet = [];
+    let lines = [];
+    let playerMoney = 150000;
+    let loanAmount = 0;
+    let gameTime = 11 * 60; // Starting time at 11:00
+    let gameTimeSpeed = 1;
+    let gameTimeDisplay = document.getElementById("current-time");
+    let busesOnRoute = [];
+
+    function getRandomPassengers() {
+      return Math.floor(Math.random() * 50) + 50; // Random number of passengers from 50 to 99
+    }
+
+    function displayBuses() {
+      const busesList = document.getElementById("buses");
+      busesList.innerHTML = "";
+      busFleet.forEach(bus => {
+        const listItem = document.createElement("li");
+        listItem.innerHTML = `<strong>${bus.name}</strong> - Type: ${bus.type} - Line: ${bus.line || "Not set"} - Capacity: ${bus.capacity} - Status: ${bus.status}`;
+        if (bus.route) {
+          listItem.innerHTML += ` - Route: ${bus.route}`;
+        }
+        busesList.appendChild(listItem);
+      });
+    }
+
+    function buyBus(type, cost) {
+      if (playerMoney < cost) {
+        alert("You don't have enough money to buy this bus!");
+        return;
+      }
+      playerMoney -= cost;
+      document.getElementById("player-money").textContent = playerMoney;
+      const newBus = { id: busFleet.length + 1, name: `${type} Bus ${busFleet.length + 1}`, type: type, line: "", route: "", capacity: getCapacity(type), status: "Inactive", startTime: 0 };
+      busFleet.push(newBus);
+      displayBuses();
+    }
+
+    function getCapacity(type) {
+      if (type === "Short") {
+        return 35;
+      } else if (type === "Standard") {
+        return 85;
+      } else if (type === "Articulated") {
+        return 130;
+      }
+    }
+
+    function takeLoan(amount) {
+      playerMoney += amount;
+      loanAmount += amount;
+      document.getElementById("player-money").textContent = playerMoney;
+    }
+
+    function repayLoan(amount) {
+      if (loanAmount >= amount) {
+        playerMoney -= amount;
+        loanAmount -= amount;
+      } else {
+        playerMoney -= loanAmount;
+        loanAmount = 0;
+      }
+      document.getElementById("player-money").textContent = playerMoney;
+    }
+
+    function assignLine(busId) {
+      const line = prompt(`Enter line for Bus ${busId}:`);
+      const busIndex = busFleet.findIndex(bus => bus.id === busId);
+      if (busIndex !== -1) {
+        busFleet[busIndex].line = line;
+        busFleet[busIndex].status = "On Route";
+        busFleet[busIndex].startTime = gameTime; // Set start time for the bus
+        busesOnRoute.push(busId);
+        displayBuses();
+      }
+    }
+
+    function createLine(event) {
+      event.preventDefault();
+      const form = event.target;
+      const lineName = form.elements["line-name"].value;
+      lines.push({ name: lineName, passengers: getRandomPassengers() });
+      displayLines();
+      form.reset();
+    }
+
+    function displayLines() {
+      const linesList = document.getElementById("lines");
+      linesList.innerHTML = "";
+      lines.forEach(line => {
+        const listItem = document.createElement("li");
+        listItem.textContent = `${line.name} - Passengers: ${line.passengers}`;
+        listItem.innerHTML += ` <button onclick="assignLineToBus('${line.name}')">Assign to Bus</button>`;
+        linesList.appendChild(listItem);
+      });
+    }
+
+    function assignLineToBus(lineName) {
+      const busId = parseInt(prompt("Enter Bus ID:"));
+      const busIndex = busFleet.findIndex(bus => bus.id === busId);
+      if (busIndex !== -1) {
+        busFleet[busIndex].line = lineName;
+        busFleet[busIndex].status = "On Route";
+        busFleet[busIndex].startTime = gameTime; // Set start time for the bus
+        busesOnRoute.push(busId);
+        displayBuses();
+      }
+    }
+
+    function updateTime() {
+      gameTime += gameTimeSpeed;
+      gameTimeDisplay.textContent = convertTime(gameTime);
+
+      // Change background color from 21:00 to 07:00
+      const currentHour = Math.floor(gameTime / 60) % 24;
+      if (currentHour >= 21 || currentHour < 7) {
+        document.body.style.backgroundColor = "#000000"; // Czarne tło
+      } else {
+        document.body.style.backgroundColor = "#ffffff"; // Domyślne tło
+      }
+
+      // Check if buses on route have been on route for 6 hours
+      busesOnRoute.forEach(busId => {
+        const busIndex = busFleet.findIndex(bus => bus.id === busId);
+        if (busIndex !== -1) {
+          const bus = busFleet[busIndex];
+          const elapsedTime = gameTime - bus.startTime;
+          if (elapsedTime >= 6 * 60) { // 6 hours in minutes
+            bus.status = "Inactive";
+            busesOnRoute = busesOnRoute.filter(id => id !== busId); // Remove from busesOnRoute
+          } else if (elapsedTime % 10 === 0) { // Check every 10 minutes
+            playerMoney += 100; // Earn $100 every 10 minutes
+            document.getElementById("player-money").textContent = playerMoney;
+          }
+        }
+      });
+
+      // Random event: Grant funding
+      if (Math.random() < 0.01) { // 0.1% chance of funding event
+        const fundingAmount = Math.random() < 0.5 ? 100000 : 200000; // Randomly select $100,000 or $200,000
+        playerMoney += fundingAmount;
+        document.getElementById("player-money").textContent = playerMoney;
+        alert(`You've received a grant funding of $${fundingAmount}!`);
+      }
+
+      displayBuses();
+    }
+
+    function convertTime(time) {
+      const hours = Math.floor(time / 60) % 24;
+      const minutes = time % 60;
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
+
+    function speedUpTime(speed) {
+      gameTimeSpeed = speed;
+    }
+
+    function resetSpeed() {
+      gameTimeSpeed = 1;
+    }
+
+    setInterval(updateTime, 1000);
+
+    displayBuses();
+
+    const lineForm = document.getElementById("line-form");
+    lineForm.addEventListener("submit", createLine);
+  </script>
+</body>
+</html>
